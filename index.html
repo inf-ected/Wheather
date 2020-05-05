@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Document</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--    -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.5.0/css/font-awesome.min.css">
+    <!--    -->
+    <style>
+        a.nav-link.active {
+            display: block;
+            background-color: #f8f9fa !important;
+            border-bottom: 1px solid #f8f9fa !important;
+        }
+
+        div.container.tab-pane {
+            border-radius: 0 0 0.5vw 0.5vw;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!--NAV-->
+    <nav class="navbar navbar-expand-sm  bg-secondary navbar-dark">
+        <a class="navbar-brand" href="#"><img width="70" src="img/logo.png" alt=""></a>
+        <ul class="navbar-nav mr-auto">
+            <li class="nav-item active">
+                <a class="nav-link d-block" href="#" id="m-1">Today</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link d-block" href="#" id="m-2">5-day forecast</a>
+            </li>
+        </ul>
+        <form class="form-inline my-2 my-lg-0 mr-2" id="searchForm" name="searchForm">
+            <div class="input-group">
+                <input type="text" class="form-control form-control-sm" placeholder="Search" id="searchInput">
+                <div class="input-group-append">
+                    <button class="btn btn-sm btn-dark" type="button" id="sb-1">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </nav>
+    <!---->
+    <div class="container" id="mainPage">
+
+        <!--ROW1-->
+        <div id="row1">
+            <div class="mx-auto" style="width: 10vw">
+                <div class="spinner-border text-primary m-5"></div>
+            </div>
+        </div>
+        <!-- ROW2      -->
+        <div id="row2">
+            <div class="mx-auto" style="width: 10vw">
+                <div class="spinner-border text-primary m-5"></div>
+            </div>
+
+        </div>
+        <!--   ROW3     -->
+        <div id="row3">
+            <div class="mx-auto" style="width: 10vw">
+                <div class="spinner-border text-primary m-5"></div>
+            </div>
+
+        </div>
+
+    </div>
+    <!--FOOTER-->
+    <footer class="container-fluid fixed-bottom bg-secondary"> <br><br></footer>
+    <script>
+        var apiKey = "b7cd9cb798d737be5b36b74e5717ebcc";
+        var iconPath = "http://openweathermap.org/img/wn/";
+        var e404Path="http://lamcdn.net/lookatme.ru/post_image-image/sIaRmaFSMfrw8QJIBAa8mA-article.png"
+        //Current city
+        var curCity = "";
+        //Current 5-day Forecast object
+        var Wforecast;
+
+        var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        var dayOfWeek = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+        // On-Load function
+        $(function() {
+            $.getJSON('https://ipinfo.io').done(
+                    locationByIP => GetByCity(locationByIP.city),
+                    locationByIP => $('#searchInput').val(locationByIP.city),
+                    locationByIP => curCity = locationByIP.city)
+                .fail(e => console.log(e), // тут можно добавить обработчик если по ип не удалось определить лок
+                    () => curCity = "Chisinau",
+                    () => $('#m-1').click())
+        });
+        // Menu First item handler
+        $('#m-1').click(function(e) {
+            e.preventDefault();
+            $('#m-1, #m-2').parent().toggleClass('active');
+            //spinners
+            $('#mainPage').empty().append(
+                $(' <div id="row1"></div>').append($('<div class="mx-auto" style="width: 10vw"></div>').append($('<div class="spinner-border text-primary m-5"></div>'))),
+                $(' <div id="row2"></div>').append($('<div class="mx-auto" style="width: 10vw"></div>').append($('<div class="spinner-border text-primary m-5"></div>'))),
+                $(' <div id="row3"></div>').append($('<div class="mx-auto" style="width: 10vw"></div>').append($('<div class="spinner-border text-primary m-5"></div>')))
+            );
+            GetByCity(curCity);
+        });
+        // Menu Second item handler
+        $('#m-2').click(function(e) {
+            e.preventDefault();
+            $('#m-1, #m-2').parent().toggleClass('active');
+            fillPage2(Wforecast);
+        })
+        // Search Button Handler (no-More requests)
+        $('#sb-1').click(function() {
+            curCity = $('#searchInput').val();
+            $('#m-1').click();
+          })
+        // input handler (no Submit)
+        $('input').keypress(e => {
+            if (e.keyCode == 13) {e.preventDefault(); $('#sb-1').click(); }
+        })
+        // LOGO handler
+        $('.navbar-brand').click(function(e) {
+            e.preventDefault();
+            location.reload();
+        });
+        //SettingUP 5-day forecast TAB bootstraps togler
+        function fillPage2(data) {
+            $('#mainPage').empty();
+            let currDate = new Date(data.list[0].dt * 1000);
+            //Next day indexer
+            let n = 0;
+            let ulX = $('<ul class="nav nav-tabs mt-4 text-center" role="tablist"></ul>');
+            let tabXcontent = $('<div class="tab-content"></div>');
+            // i-index of Tabs
+            for (let i = 1; i < 6; i++) {
+                //Tabs
+                let dateOfTab = new Date(data.list[n].dt * 1000);
+                let tabX = $('<div class="container text-body"></div>').append(
+                    $('<span></span>').text(dayOfWeek[dateOfTab.getDay()]), "<br>",
+                    $('<span></span>').text(monthNames[dateOfTab.getMonth()] + "." + dateOfTab.getDate()), "<br>",
+                    $('<img style="width: 4vw" alt="ico">').attr("src", iconPath + data.list[n].weather[0].icon + "@2x.png"), "<br>",
+                    $('<span></span>').text(Math.round(data.list[n].main.temp) + ' C°'), "<br>",
+                    $('<span></span>').text(data.list[n].weather[0].main));
+                let aX = $('<a class="nav-link " data-toggle="tab"></a>').attr("href", "#day" + i).append(tabX);
+                if (i == 1) aX.addClass('active');
+                let liX = $('<li class="nav-item ">').append(aX);
+                $(ulX).append(liX);
+                //Tab Content
+                let tabXpane = $('<div id="day' + i + '" class="container tab-pane border border-top-0 bg-light "><br></div>')
+                if (i == 1) tabXpane.addClass('active');
+                $(tabXpane).append($('<h3></h3>').text(dateOfTab.getDate() + "." + monthNames[dateOfTab.getMonth()] + "." + dateOfTab.getFullYear()));
+                $(tabXpane).append(createHourlyTable(data, n));
+                tabXcontent.append(tabXpane);
+                //Set start of next day after Today (time 06.00)
+                if (i == 1) n = Math.floor((24 - currDate.getHours()) / 3) + 1 + 2;
+                else n += 8;
+            }
+            $('#mainPage').append(ulX, tabXcontent);
+        }
+        //Creating a string object with hourly forecast table
+        function createHourlyTable(hourlyWeather, startIndex) {
+            let str = ""; // debbuging info  (${hourlyWeather.list[startIndex].dt_txt}) (${startIndex})
+            str = `
+<div class="row">
+    <div class="col-md-12">
+        <h4 class="text-center text-capitalize"> Hourly (step 3hr)   </h4>
+            <table class="table thead-dark">
+                      <tr>
+                      <th>Time</th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td>${hourlyWeather.list[i].dt_txt.substring(11,16)}</td>`;
+            str += `</tr>
+                      <tr>
+                      <th></th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td><img src="${iconPath}${hourlyWeather.list[i].weather[0].icon}@2x.png" alt="ico" style="width: 5vw"><br /></td>`;
+            str += `</tr>
+                      <tr>
+                      <th>Forecast</th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td>${hourlyWeather.list[i].weather[0].main}</td>`;
+            str += `</tr>
+                      <tr>
+                      <th>Temp(C°)</th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td>${Math.round(hourlyWeather.list[i].main.temp)} C°</td>`;
+            str += `</tr>
+                      <tr>
+                      <th>Real Feel</th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td>${Math.round(hourlyWeather.list[i].main.feels_like)} C°</td>`;
+            str += `</tr>
+                      <tr>
+                      <th>Wind(km/h)</th>`;
+            for (let i = startIndex; i < startIndex + 6; i++)
+                str += `<td>${wind(hourlyWeather.list[i].wind.speed,hourlyWeather.list[i].wind.deg)}</td>`;
+            str += `</tr>
+            </table>
+        </div>
+</div>`;
+            return str;
+        }
+        //getJSon obj with direct forecast by city name
+        function GetByCity(city) {
+            $.getJSON("https://api.openweathermap.org/data/2.5/weather?q=" + city + "&units=metric&APPID=" + apiKey)
+                .fail(e => console.log(e.message),
+                    () => $('#mainPage').html('<img src="'+e404Path+'">'))
+                .done(currentWheather => console.log(currentWheather),
+                    currentWheather => fillRow1(currentWheather),
+                    currentWheather => fillRow2(currentWheather.name),
+                    currentWheather => fillRow3(currentWheather.coord.lon, currentWheather.coord.lat))
+        }
+        //Compose and setting up Row1 div
+        function fillRow1(data) {
+            let curDate = new Date(data.dt * 1000);
+            let sunRise = new Date(data.sys.sunrise * 1000);
+            let sunSet = new Date(data.sys.sunset * 1000);
+            let duration = new Date((data.sys.sunset - data.sys.sunrise) * 1000);
+            let realFeel = Math.round((37 - ((37 - data.main['temp']) / (0.68 - 0.0014 * data.main['humidity'] + (1 / (1.76 + 1.4 * Math.pow((data.wind['speed'] / 3.6), 0.75))))) - 0.29 * data.main['temp'] * (1 - (data.main['humidity'] / 100))))
+            $('#row1').html(`
+<h4 class="text-center text-capitalize">Current weather in ${data.name}, ${data.sys['country']}  Date: ${curDate.getDate()+"."+(curDate.getMonth()+1)+"."+curDate.getFullYear()}</h4>
+            <div class="row p-2 text-center bg-light rounded-lg">
+                <div class="col-md-4">
+                    <img src="${iconPath}${data.weather[0].icon}@2x.png" alt="" style="width: 8vw"><br />
+                    <span class="" id="WtherState">${data.weather[0]['main']}</span>
+                </div>
+                <div class="col-md-4"><br />
+                    <span class="text-info" style="font-size: 
+                    2.5rem">${Math.round(data.main['temp'])}°C</span><br />
+                    <span>Real Feel: ${realFeel} °C</span>
+                </div>
+                <div class="col-md-4 text-left"><br /><br />
+                    <span>Sunrise: ${sunRise.getHours()+":"+sunRise.getMinutes()}</span><br />
+                    <span>Sunset: ${sunSet.getHours()+":"+sunSet.getMinutes()}</span><br />
+                    <span>Duration: ${duration.getHours()+":"+duration.getMinutes()} hr</span>
+                </div>
+            </div>`);
+        }
+        //GetJSon obj with 5-day forecast and setting up Row2 div
+        function fillRow2(data) {
+            $.getJSON("https://api.openweathermap.org/data/2.5/forecast?q=" + data + "&units=metric&APPID=" + apiKey)
+                .fail(e => console.log(e.message))
+                .done(hourlyWeather => console.log(hourlyWeather),
+                    hourlyWeather => {
+                        $('#row2').empty().html(createHourlyTable(hourlyWeather, 0));
+                        Wforecast = hourlyWeather;
+                    })
+        }
+
+        //calculate direction of wind by degree numeric value
+        function wind(speed, deg) {
+            let direction;
+            if (deg > 11.25 && deg <= 33.75) {
+                direction = "NNE";
+            } else if (deg > 33.75 && deg <= 56.25) {
+                direction = "ENE";
+            } else if (deg > 56.25 && deg <= 78.75) {
+                direction = "E";
+            } else if (deg > 78.75 && deg <= 101.25) {
+                direction = "ESE";
+            } else if (deg > 101.25 && deg <= 123.75) {
+                direction = "ESE";
+            } else if (deg > 123.75 && deg <= 146.25) {
+                direction = "SE";
+            } else if (deg > 146.25 && deg <= 168.75) {
+                direction = "SSE";
+            } else if (deg > 168.75 && deg <= 191.25) {
+                direction = "S";
+            } else if (deg > 191.25 && deg <= 213.75) {
+                direction = "SSW";
+            } else if (deg > 213.75 && deg <= 236.25) {
+                direction = "SW";
+            } else if (deg > 236.25 && deg <= 258.75) {
+                direction = "WSW";
+            } else if (deg > 258.75 && deg <= 281.25) {
+                direction = "W";
+            } else if (deg > 281.25 && deg <= 303.75) {
+                direction = "WNW";
+            } else if (deg > 303.75 && deg <= 326.25) {
+                direction = "NW";
+            } else if (deg > 326.25 && deg <= 348.75) {
+                direction = "NNW";
+            } else {
+                direction = "N";
+            }
+            return Math.round(speed) == 0 ? "calm" : Math.round(speed) + " " + direction;
+        }
+        // Get JSon obj with nearbly places by latittude and longitude and setting up Row3 div
+        function fillRow3(lon, lat) {
+            $.getJSON("https://api.openweathermap.org/data/2.5/find?lat=" + lat + "&lon=" + lon + "&units=metric&cnt=6&APPID=" + apiKey)
+                .fail(e => console.log(e.message))
+                .done(nearPlaces => console.log(nearPlaces),
+                    nearPlaces => $('#row3').html(createRow3(nearPlaces)))
+        }
+        //Compose Row3 content with nearbly places
+        function createRow3(nearPlaces) {
+            let str = "";
+            str = `<div class="row p-2 text-center bg-light rounded-lg">
+                <div class="col-md-12">
+                    <h4 class="text-capitalize">Nearbly Places</h4>
+                    <div class="row ">`;
+            for (let i = 2; i < 6; i++) {
+                str += `<div class="col-md-6  ">
+                            <div class="container-fluid m-2 bg-white rounded-lg border ">
+                                <span class=" ">${nearPlaces.list[i].name}</span>
+                                <img src="${iconPath}${nearPlaces.list[i].weather[0].icon}@2x.png" alt="ico" style="width: 3vw">
+                                <span class="ml-5">${Math.round(nearPlaces.list[i].main.temp)} C°</span>
+                            </div>
+                        </div>`;
+                if (i == 3) {
+                    str += `</div>
+                    <div class="row ">`;
+                }
+            }
+            str += `</div>
+                </div>
+            </div>`;
+            return str;
+        }
+    </script>
+</body></html>
